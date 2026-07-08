@@ -11,6 +11,17 @@ const onlyDigits = (s: string | null | undefined) => (s ?? "").replace(/\D/g, ""
 // DIČ comparison key: uppercase, alphanumerics only (so "CZ 123" == "cz123").
 const dicKey = (s: string | null | undefined) => (s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
+// Fakturoid's subject `country` is an ISO 3166-1 alpha-2 code. EU VAT IDs are
+// prefixed with the country (DE, SK, AT, …), so derive it from the DIČ instead
+// of assuming CZ — otherwise a German supplier lands under CZ with a DE VAT no.
+// Greece's VAT prefix "EL" maps to ISO "GR". Fall back to CZ when there's no
+// alphabetic prefix (older bare-digit Czech DIČ).
+function countryFromDic(dic: string | null | undefined): string {
+  const prefix = (dic ?? "").trim().toUpperCase().match(/^([A-Z]{2})/)?.[1];
+  if (!prefix) return "CZ";
+  return prefix === "EL" ? "GR" : prefix;
+}
+
 // --- token cache (per app session, keyed by client id) ---------------------
 let cached: { key: string; value: string; expiresAt: number } | null = null;
 
@@ -96,7 +107,7 @@ async function findOrCreateSubject(
     registration_no: icoDigits || undefined,
     vat_no: supplier.dic || undefined,
     type: "supplier",
-    country: "CZ",
+    country: countryFromDic(supplier.dic),
   });
   return { id: created.id, name: created.name, matchedBy: "created", created: true };
 }

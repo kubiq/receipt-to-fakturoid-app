@@ -22,6 +22,32 @@ const onlyDigits = (s: string | null | undefined) => (s ?? "").replace(/\D/g, ""
 // DIČ comparison key: uppercase, alphanumerics only (so "CZ 123" == "cz123").
 const dicKey = (s: string | null | undefined) => (s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
+// EU VAT IDs are prefixed with the country (DE, SK, AT, …); derive that ISO
+// alpha-2 code from the DIČ. Greece's VAT prefix "EL" maps to ISO "GR". Returns
+// null when there's no alphabetic prefix (older bare-digit Czech DIČ).
+function countryFromDic(dic: string | null | undefined): string | null {
+  const prefix = (dic ?? "").trim().toUpperCase().match(/^([A-Z]{2})/)?.[1];
+  if (!prefix) return null;
+  return prefix === "EL" ? "GR" : prefix;
+}
+
+// iDoklad identifies countries by numeric CountryId, so resolve the DIČ's ISO
+// code to an Id via /Countries. Country Ids are global (account-independent), so
+// cache resolved hits. Falls back to the caller's default (the account's home
+// country from /Contacts/Default) when the code is missing or unresolvable.
+const countryIdCache = new Map<string, number>();
+async function countryIdFromDic(c: Creds, dic: string | null, fallback: number): Promise<number> {
+  const code = countryFromDic(dic);
+  if (!code) return fallback;
+  const cached = countryIdCache.get(code);
+  if (cached !== undefined) return cached;
+  const q = encodeURIComponent(`Code~eq~${code}`);
+  const hit = items(await api(c, "GET", `/Countries?filter=${q}&pageSize=1`))[0];
+  if (!hit) return fallback;
+  countryIdCache.set(code, hit.Id);
+  return hit.Id;
+}
+
 // --- token cache (keyed by client id) --------------------------------------
 let cached: { key: string; value: string; expiresAt: number } | null = null;
 
@@ -125,6 +151,7 @@ async function findOrCreateContact(
       CompanyName: name,
       IdentificationNumber: icoDigits || undefined,
       VatIdentificationNumber: supplier.dic || undefined,
+      CountryId: await countryIdFromDic(c, supplier.dic, model.CountryId),
     }),
   );
   return { id: created.Id, name: created.CompanyName ?? name, matchedBy: "created", created: true };
