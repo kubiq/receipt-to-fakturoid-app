@@ -58,7 +58,8 @@
             "application/pdf"
           ]
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "extra": {
       "eas": {
