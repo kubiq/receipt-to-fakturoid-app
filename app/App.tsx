@@ -7,6 +7,7 @@ import { prepareImageBase64, readPdfBase64 } from "./src/image";
 import { parseReceipt } from "./src/openai";
 import { isConfigured } from "./src/accounting";
 import { showAlert } from "./src/ui";
+import { I18nProvider, resolveLanguage, t } from "./src/i18n";
 import type { CreatedExpense, PickedFile, Receipt, Settings } from "./src/types";
 import CaptureScreen from "./src/screens/CaptureScreen";
 import ReviewScreen from "./src/screens/ReviewScreen";
@@ -22,7 +23,7 @@ export default function App() {
   // The current file as a data URL, to attach to the created expense.
   const [source, setSource] = useState<{ data_url: string; filename: string } | null>(null);
   const [queue, setQueue] = useState<PickedFile[]>([]);
-  const [busyMsg, setBusyMsg] = useState("Reading the receipt…");
+  const [busyMsg, setBusyMsg] = useState(() => t("busy.reading"));
   const [summary, setSummary] = useState<{ count: number; last: CreatedExpense | null }>({ count: 0, last: null });
 
   const total = useRef(0);
@@ -47,7 +48,7 @@ export default function App() {
     resetShareIntent();
     if (files.length === 0) return;
     if (!isConfigured(settings)) {
-      showAlert("Setup needed", "Set your OpenAI and Fakturoid/iDoklad keys in Settings first.");
+      showAlert(t("alerts.setupNeededTitle"), t("alerts.setupNeededMsg"));
       setScreen("settings");
       return;
     }
@@ -63,7 +64,7 @@ export default function App() {
     }
     setQueue(files);
     const done = total.current - files.length + 1;
-    setBusyMsg(total.current > 1 ? `Reading receipt ${done} of ${total.current}…` : "Reading the receipt…");
+    setBusyMsg(total.current > 1 ? t("busy.readingN", { done, total: total.current }) : t("busy.reading"));
     setScreen("busy");
     try {
       const file = files[0];
@@ -77,7 +78,7 @@ export default function App() {
       setReceipt(parsed);
       setScreen("review");
     } catch (e: any) {
-      showAlert("Parsing failed", e?.message ?? String(e));
+      showAlert(t("alerts.parsingFailed"), e?.message ?? String(e));
       processQueue(files.slice(1), current);
     }
   }
@@ -117,6 +118,7 @@ export default function App() {
   }
 
   return (
+    <I18nProvider language={resolveLanguage(settings.language)}>
     <View style={styles.shell}>
       <StatusBar style="dark" />
       <View style={styles.card}>
@@ -168,6 +170,7 @@ export default function App() {
       )}
       </View>
     </View>
+    </I18nProvider>
   );
 }
 

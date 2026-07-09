@@ -11,6 +11,7 @@ import {
 import { getProvider, providerCreds } from "../accounting";
 import { useKeyboardHeight } from "../keyboard";
 import { showAlert } from "../ui";
+import { useI18n } from "../i18n";
 import type { CreatedExpense, Receipt, Settings, Subject } from "../types";
 
 type Props = {
@@ -40,6 +41,7 @@ export default function ReviewScreen({
   onDone,
   onBack,
 }: Props) {
+  const { t } = useI18n();
   // Fall back to the supplier name when no merchant/trade name was extracted (e.g. invoices).
   const [receipt, setReceipt] = useState<Receipt>(() => ({
     ...initial,
@@ -98,7 +100,7 @@ export default function ReviewScreen({
     try {
       setSubjects(await provider.searchSubjects(creds, query));
     } catch (e: any) {
-      showAlert("Search failed", e?.message ?? String(e));
+      showAlert(t("alerts.searchFailed"), e?.message ?? String(e));
     } finally {
       setSearching(false);
     }
@@ -106,14 +108,11 @@ export default function ReviewScreen({
 
   async function submit() {
     if (receipt.items.length === 0) {
-      showAlert("No items", "Add at least one line item.");
+      showAlert(t("alerts.noItemsTitle"), t("alerts.noItemsMsg"));
       return;
     }
     if (!override && !ico && !dic) {
-      showAlert(
-        "No supplier",
-        "No IČO or DIČ was extracted, so the supplier can't be auto-matched. Pick a supplier manually.",
-      );
+      showAlert(t("alerts.noSupplierTitle"), t("alerts.noSupplierMsg"));
       setShowSearch(true);
       return;
     }
@@ -130,7 +129,7 @@ export default function ReviewScreen({
       if (cleanTags.length) onUsedTags?.(cleanTags);
       onDone(expense);
     } catch (e: any) {
-      showAlert("Could not create expense", e?.message ?? String(e));
+      showAlert(t("alerts.createFailedTitle"), e?.message ?? String(e));
     } finally {
       setSubmitting(false);
     }
@@ -144,42 +143,42 @@ export default function ReviewScreen({
     >
       <View style={styles.headerRow}>
         <Pressable onPress={onBack} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
+          <Text style={styles.back}>{t("common.back")}</Text>
         </Pressable>
-        <Text style={styles.title}>Review</Text>
+        <Text style={styles.title}>{t("review.title")}</Text>
         <View style={{ width: 48 }} />
       </View>
 
       {/* Header fields */}
-      <Text style={styles.label}>Merchant</Text>
+      <Text style={styles.label}>{t("review.merchant")}</Text>
       <TextInput
         style={styles.input}
         value={receipt.merchant ?? ""}
-        onChangeText={(t) => setReceipt((r) => ({ ...r, merchant: t }))}
+        onChangeText={(v) => setReceipt((r) => ({ ...r, merchant: v }))}
       />
-      <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
+      <Text style={styles.label}>{t("review.date")}</Text>
       <TextInput
         style={styles.input}
         value={receipt.date ?? ""}
-        onChangeText={(t) => setReceipt((r) => ({ ...r, date: t }))}
-        placeholder="2026-06-10"
+        onChangeText={(v) => setReceipt((r) => ({ ...r, date: v }))}
+        placeholder={t("review.datePlaceholder")}
       />
-      <Text style={styles.label}>Document no.</Text>
+      <Text style={styles.label}>{t("review.docNo")}</Text>
       <TextInput
         style={styles.input}
         value={receipt.doc_number ?? ""}
-        onChangeText={(t) => setReceipt((r) => ({ ...r, doc_number: t }))}
-        placeholder="from the receipt"
+        onChangeText={(v) => setReceipt((r) => ({ ...r, doc_number: v }))}
+        placeholder={t("review.docPlaceholder")}
       />
 
       {/* Supplier — auto by IČO, with manual override */}
-      <Text style={styles.section}>Supplier</Text>
+      <Text style={styles.section}>{t("review.supplier")}</Text>
       {override ? (
         <View style={styles.supplierBox}>
           <Text style={styles.supplierName}>{override.name}</Text>
-          <Text style={styles.muted}>Manual override · #{override.id}</Text>
+          <Text style={styles.muted}>{t("review.manualOverride", { id: override.id })}</Text>
           <Pressable onPress={() => setOverride(null)} hitSlop={8}>
-            <Text style={styles.link}>Use auto-match instead</Text>
+            <Text style={styles.link}>{t("review.useAutoMatch")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -187,13 +186,15 @@ export default function ReviewScreen({
           <Text style={styles.supplierName}>{receipt.supplier_name ?? receipt.merchant ?? "—"}</Text>
           <Text style={styles.muted}>
             {ico
-              ? `Auto-match by IČO ${ico}${receipt.supplier_dic ? ` · ${receipt.supplier_dic}` : ""}`
+              ? receipt.supplier_dic
+                ? t("review.autoByIcoDic", { ico, dic: receipt.supplier_dic })
+                : t("review.autoByIco", { ico })
               : dic
-                ? `Auto-match by DIČ ${receipt.supplier_dic}`
-                : "⚠ no IČO/DIČ extracted — pick a supplier manually"}
+                ? t("review.autoByDic", { dic: receipt.supplier_dic })
+                : t("review.noIdWarn")}
           </Text>
           <Pressable onPress={() => setShowSearch((s) => !s)} hitSlop={8}>
-            <Text style={styles.link}>{showSearch ? "Hide search" : "Override supplier…"}</Text>
+            <Text style={styles.link}>{showSearch ? t("review.hideSearch") : t("review.overrideSupplier")}</Text>
           </Pressable>
         </View>
       )}
@@ -201,9 +202,9 @@ export default function ReviewScreen({
       {showSearch && !override && (
         <>
           <View style={styles.searchRow}>
-            <TextInput style={[styles.input, { flex: 1 }]} value={query} onChangeText={setQuery} placeholder="Search…" />
+            <TextInput style={[styles.input, { flex: 1 }]} value={query} onChangeText={setQuery} placeholder={t("review.searchPlaceholder")} />
             <Pressable style={styles.searchBtn} onPress={doSearch}>
-              <Text style={styles.searchBtnText}>{searching ? "…" : "Search"}</Text>
+              <Text style={styles.searchBtnText}>{searching ? "…" : t("common.search")}</Text>
             </Pressable>
           </View>
           {subjects.map((s) => (
@@ -223,45 +224,43 @@ export default function ReviewScreen({
       )}
 
       {/* Items — per-line VAT */}
-      <Text style={styles.section}>Items</Text>
+      <Text style={styles.section}>{t("review.items")}</Text>
       {receipt.items.map((it, i) => (
         <View key={i} style={styles.itemCard}>
           <View style={styles.itemTop}>
-            <TextInput style={[styles.input, { flex: 1 }]} value={it.name} onChangeText={(t) => updateItem(i, { name: t })} />
+            <TextInput style={[styles.input, { flex: 1 }]} value={it.name} onChangeText={(v) => updateItem(i, { name: v })} />
             <Pressable onPress={() => removeItem(i)} hitSlop={10}>
               <Text style={styles.remove}>✕</Text>
             </Pressable>
           </View>
           <View style={styles.itemNums}>
-            <NumField label="Qty" value={it.quantity} onChange={(n) => updateItem(i, { quantity: n })} />
-            <NumField label="Unit" value={it.unit_price} onChange={(n) => updateItem(i, { unit_price: n })} />
-            <NumField label="Total" value={it.total_price} onChange={(n) => updateItem(i, { total_price: n ?? 0 })} />
-            <NumField label="VAT %" value={it.vat_rate} onChange={(n) => updateItem(i, { vat_rate: n })} />
+            <NumField label={t("review.qty")} value={it.quantity} onChange={(n) => updateItem(i, { quantity: n })} />
+            <NumField label={t("review.unit")} value={it.unit_price} onChange={(n) => updateItem(i, { unit_price: n })} />
+            <NumField label={t("review.total")} value={it.total_price} onChange={(n) => updateItem(i, { total_price: n ?? 0 })} />
+            <NumField label={t("review.vatPct")} value={it.vat_rate} onChange={(n) => updateItem(i, { vat_rate: n })} />
           </View>
         </View>
       ))}
 
       {/* Reconciliation */}
       <View style={styles.totalRow}>
-        <Text style={styles.muted}>Lines: {lineSum.toFixed(2)} {receipt.currency ?? ""}</Text>
-        <Text style={styles.muted}>Receipt: {receipt.total?.toFixed(2) ?? "—"}</Text>
+        <Text style={styles.muted}>{t("review.lines", { sum: lineSum.toFixed(2), currency: receipt.currency ?? "" })}</Text>
+        <Text style={styles.muted}>{t("review.receipt", { total: receipt.total?.toFixed(2) ?? "—" })}</Text>
       </View>
-      {totalMismatch && <Text style={styles.warn}>⚠ Line sum differs from the receipt total — check items.</Text>}
+      {totalMismatch && <Text style={styles.warn}>{t("review.totalMismatch")}</Text>}
       {recapMismatch && (
-        <Text style={styles.warn}>
-          ⚠ VAT recap ({recapTotal.toFixed(2)}) doesn't reconcile with the total — a number may be misread.
-        </Text>
+        <Text style={styles.warn}>{t("review.vatMismatch", { recap: recapTotal.toFixed(2) })}</Text>
       )}
 
       {/* Tags — captured here, used for filtering/reporting in the accounting system */}
       {provider.supportsTags && (
         <>
-          <Text style={styles.section}>Tags</Text>
+          <Text style={styles.section}>{t("review.tags")}</Text>
           {tags.length > 0 && (
             <View style={styles.tagWrap}>
-              {tags.map((t) => (
-                <Pressable key={t} style={styles.tagChip} onPress={() => removeTag(t)} hitSlop={6}>
-                  <Text style={styles.tagChipText}>{t}</Text>
+              {tags.map((tag) => (
+                <Pressable key={tag} style={styles.tagChip} onPress={() => removeTag(tag)} hitSlop={6}>
+                  <Text style={styles.tagChipText}>{tag}</Text>
                   <Text style={styles.tagChipX}>✕</Text>
                 </Pressable>
               ))}
@@ -272,20 +271,20 @@ export default function ReviewScreen({
               style={[styles.input, { flex: 1 }]}
               value={tagInput}
               onChangeText={setTagInput}
-              placeholder="Add a tag…"
+              placeholder={t("review.addTagPlaceholder")}
               autoCapitalize="none"
               returnKeyType="done"
               onSubmitEditing={() => addTag(tagInput)}
             />
             <Pressable style={styles.searchBtn} onPress={() => addTag(tagInput)}>
-              <Text style={styles.searchBtnText}>Add</Text>
+              <Text style={styles.searchBtnText}>{t("common.add")}</Text>
             </Pressable>
           </View>
           {tagSuggestions.length > 0 && (
             <View style={styles.tagWrap}>
-              {tagSuggestions.map((t) => (
-                <Pressable key={t} style={styles.tagSuggest} onPress={() => addTag(t)} hitSlop={6}>
-                  <Text style={styles.tagSuggestText}>+ {t}</Text>
+              {tagSuggestions.map((tag) => (
+                <Pressable key={tag} style={styles.tagSuggest} onPress={() => addTag(tag)} hitSlop={6}>
+                  <Text style={styles.tagSuggestText}>+ {tag}</Text>
                 </Pressable>
               ))}
             </View>
@@ -296,12 +295,12 @@ export default function ReviewScreen({
       {/* Options */}
       <Pressable style={styles.toggleRow} onPress={() => setMarkPaid((v) => !v)} hitSlop={6}>
         <View style={[styles.checkbox, markPaid && styles.checkboxOn]}>{markPaid && <Text style={styles.checkboxTick}>✓</Text>}</View>
-        <Text style={styles.toggleLabel}>Mark as paid (on the document date)</Text>
+        <Text style={styles.toggleLabel}>{t("review.markPaid")}</Text>
       </Pressable>
-      {attachment && <Text style={styles.muted}>📎 The receipt file will be attached to the expense.</Text>}
+      {attachment && <Text style={styles.muted}>{t("review.attachmentNote")}</Text>}
 
       <Pressable style={styles.submit} onPress={submit} disabled={submitting}>
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Create expense in {provider.label}</Text>}
+        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{t("review.createExpense", { provider: provider.label })}</Text>}
       </Pressable>
     </ScrollView>
   );

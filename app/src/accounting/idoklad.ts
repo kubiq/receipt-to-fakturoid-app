@@ -203,10 +203,11 @@ async function createExpense(c: Creds, receipt: Receipt, opts: CreateExpenseOpts
 export const idokladProvider: AccountingProvider = {
   id: "idoklad",
   label: "iDoklad",
-  setupHint: "Create API credentials in iDoklad → Nastavení → API (Client Credentials).",
+  // setupHint / field labels are i18n keys, resolved in SettingsScreen.
+  setupHint: "settings.setupHint.idoklad",
   credentialFields: [
-    { key: "clientId", label: "Client ID" },
-    { key: "clientSecret", label: "Client secret", secret: true },
+    { key: "clientId", label: "settings.field.clientId" },
+    { key: "clientSecret", label: "settings.field.clientSecret", secret: true },
   ],
   check: async (c) => {
     await getToken(c);

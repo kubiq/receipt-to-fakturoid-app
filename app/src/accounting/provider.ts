@@ -1,6 +1,7 @@
 import type { CreatedExpense, ProviderId, Receipt, Subject } from "../types";
 
 // One credential input the Settings screen renders for a provider.
+// `label` and `placeholder` are i18n keys, translated by SettingsScreen.
 export type CredentialField = {
   key: string;
   label: string;
@@ -25,7 +26,7 @@ export type CreateExpenseOpts = {
 export interface AccountingProvider {
   id: ProviderId;
   label: string;
-  /** Where to create the API app, shown as a hint in Settings. */
+  /** i18n key for the "where to create the API app" hint shown in Settings. */
   setupHint: string;
   credentialFields: CredentialField[];
 

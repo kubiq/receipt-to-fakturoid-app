@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { isConfigured } from "../accounting";
 import { showAlert } from "../ui";
+import { useI18n } from "../i18n";
 import type { PickedFile, Settings } from "../types";
 
 type Props = {
@@ -15,11 +16,12 @@ type Props = {
 const isWeb = Platform.OS === "web";
 
 export default function CaptureScreen({ settings, onSelected, onOpenSettings }: Props) {
+  const { t } = useI18n();
   const needsSettings = !isConfigured(settings);
 
   function guard(): boolean {
     if (needsSettings) {
-      showAlert("Setup needed", "Set your OpenAI and Fakturoid/iDoklad keys in Settings first.");
+      showAlert(t("alerts.setupNeededTitle"), t("alerts.setupNeededMsg"));
       return false;
     }
     return true;
@@ -28,7 +30,7 @@ export default function CaptureScreen({ settings, onSelected, onOpenSettings }: 
   async function takePhoto() {
     if (!guard()) return;
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) return showAlert("Permission denied", "Cannot access the camera.");
+    if (!perm.granted) return showAlert(t("alerts.permissionDeniedTitle"), t("alerts.cameraDenied"));
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 1 });
     if (!result.canceled && result.assets?.length)
       onSelected(result.assets.map((a) => ({ uri: a.uri, isPdf: false })));
@@ -38,7 +40,7 @@ export default function CaptureScreen({ settings, onSelected, onOpenSettings }: 
     if (!guard()) return;
     if (!isWeb) {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) return showAlert("Permission denied", "Cannot access photos.");
+      if (!perm.granted) return showAlert(t("alerts.permissionDeniedTitle"), t("alerts.photosDenied"));
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -73,19 +75,19 @@ export default function CaptureScreen({ settings, onSelected, onOpenSettings }: 
       <View style={styles.center}>
         {!isWeb && (
           <Pressable style={styles.primary} onPress={takePhoto}>
-            <Text style={styles.primaryText}>Take photo</Text>
+            <Text style={styles.primaryText}>{t("capture.takePhoto")}</Text>
           </Pressable>
         )}
         <Pressable style={isWeb ? styles.primary : styles.secondary} onPress={pickImages}>
           <Text style={isWeb ? styles.primaryText : styles.secondaryText}>
-            {isWeb ? "Select receipt images" : "Pick from gallery"}
+            {isWeb ? t("capture.selectImages") : t("capture.pickGallery")}
           </Text>
         </Pressable>
         <Pressable style={styles.secondary} onPress={pickPdfs}>
-          <Text style={styles.secondaryText}>Select PDF</Text>
+          <Text style={styles.secondaryText}>{t("capture.selectPdf")}</Text>
         </Pressable>
-        {isWeb && <Text style={styles.muted}>You can select multiple images or PDFs — each is processed as its own receipt.</Text>}
-        {needsSettings && <Text style={styles.warn}>Set your keys in Settings ⚙︎</Text>}
+        {isWeb && <Text style={styles.muted}>{t("capture.multiHint")}</Text>}
+        {needsSettings && <Text style={styles.warn}>{t("capture.setKeysHint")}</Text>}
       </View>
     </LinearGradient>
   );

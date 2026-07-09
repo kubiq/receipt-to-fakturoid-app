@@ -6,7 +6,8 @@ import { PROVIDERS, getProvider, providerCreds } from "../accounting";
 import { saveSettings } from "../storage";
 import { useKeyboardHeight } from "../keyboard";
 import { showAlert } from "../ui";
-import type { ProviderId, Settings } from "../types";
+import { useI18n } from "../i18n";
+import { SUPPORTED_LANGUAGES, type LanguagePref, type ProviderId, type Settings } from "../types";
 
 type Props = {
   initial: Settings;
@@ -16,16 +17,21 @@ type Props = {
 
 const OPENAI_BILLING_URL = "https://platform.openai.com/settings/organization/billing/overview";
 
+// Native language names for the picker (endonyms); "system" label is translated.
+const LANGUAGE_ENDONYMS: Record<string, string> = { en: "English", cs: "Čeština", de: "Deutsch", sk: "Slovenčina" };
+
 // Trim values when persisting (raw stays in the fields for smooth typing).
+// Spread `s` so fields we don't touch (provider, recentTags, language) survive.
 function trimmed(s: Settings): Settings {
   return {
+    ...s,
     openaiApiKey: s.openaiApiKey.trim(),
-    provider: s.provider,
     creds: Object.fromEntries(Object.entries(s.creds).map(([k, v]) => [k, (v ?? "").trim()])),
   };
 }
 
 export default function SettingsScreen({ initial, onChange, onClose }: Props) {
+  const { t } = useI18n();
   const [s, setS] = useState<Settings>(initial);
   const [testing, setTesting] = useState(false);
   const mounted = useRef(false);
@@ -34,9 +40,9 @@ export default function SettingsScreen({ initial, onChange, onClose }: Props) {
   const kb = useKeyboardHeight();
 
   function persist(next: Settings) {
-    const t = trimmed(next);
-    onChange(t);
-    saveSettings(t);
+    const tv = trimmed(next);
+    onChange(tv);
+    saveSettings(tv);
   }
 
   // Auto-save: debounce persistence whenever settings change.
@@ -52,6 +58,13 @@ export default function SettingsScreen({ initial, onChange, onClose }: Props) {
 
   const setOpenAi = (v: string) => setS((p) => ({ ...p, openaiApiKey: v }));
   const setProvider = (id: ProviderId) => setS((p) => ({ ...p, provider: id }));
+  // Apply the language immediately (bypass the debounce) so the UI re-translates now.
+  const setLanguage = (language: LanguagePref) => {
+    const next = { ...s, language };
+    setS(next);
+    persist(next);
+  };
+  const currentLanguage: LanguagePref = s.language ?? "system";
   const setCred = (fieldKey: string, v: string) =>
     setS((p) => ({ ...p, creds: { ...p.creds, [`${p.provider}.${fieldKey}`]: v } }));
   const credValue = (fieldKey: string) => s.creds[`${s.provider}.${fieldKey}`] ?? "";
@@ -64,18 +77,20 @@ export default function SettingsScreen({ initial, onChange, onClose }: Props) {
   async function test() {
     setTesting(true);
     try {
-      const t = trimmed(s);
-      const openaiOk = t.openaiApiKey ? await checkOpenAiKey(t.openaiApiKey) : false;
-      let providerLine: string;
+      const tv = trimmed(s);
+      const openaiOk = tv.openaiApiKey ? await checkOpenAiKey(tv.openaiApiKey) : false;
+      let providerStatus: string;
       try {
-        await provider.check(providerCreds(t));
-        providerLine = `${provider.label}: ✓ ok`;
+        await provider.check(providerCreds(tv));
+        providerStatus = t("alerts.ok");
       } catch (e: any) {
-        providerLine = `${provider.label}: ✗ ${e?.message ?? "failed"}`;
+        providerStatus = t("alerts.providerFail", { msg: e?.message ?? t("alerts.failed") });
       }
-      showAlert("Connection test", `OpenAI: ${openaiOk ? "✓ ok" : "✗ failed"}\n${providerLine}`);
+      const openaiLine = t("alerts.openaiLine", { status: openaiOk ? t("alerts.ok") : t("alerts.failed") });
+      const providerLine = t("alerts.providerLine", { label: provider.label, status: providerStatus });
+      showAlert(t("alerts.connectionTestTitle"), `${openaiLine}\n${providerLine}`);
     } catch (e: any) {
-      showAlert("Test failed", e?.message ?? String(e));
+      showAlert(t("alerts.testFailedTitle"), e?.message ?? String(e));
     } finally {
       setTesting(false);
     }
@@ -89,20 +104,20 @@ export default function SettingsScreen({ initial, onChange, onClose }: Props) {
     >
       <View style={styles.headerRow}>
         <Pressable onPress={close} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
+          <Text style={styles.back}>{t("common.back")}</Text>
         </Pressable>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.title}>{t("settings.title")}</Text>
         <View style={{ width: 48 }} />
       </View>
 
-      <Text style={styles.group}>OpenAI</Text>
-      <Field label="API key" value={s.openaiApiKey} onChange={setOpenAi} secure placeholder="sk-…" />
-      <Text style={styles.hint}>Your own key from platform.openai.com. ~$0.01 per receipt.</Text>
+      <Text style={styles.group}>{t("settings.openai")}</Text>
+      <Field label={t("settings.apiKey")} value={s.openaiApiKey} onChange={setOpenAi} secure placeholder="sk-…" />
+      <Text style={styles.hint}>{t("settings.apiKeyHint")}</Text>
       <Pressable onPress={() => Linking.openURL(OPENAI_BILLING_URL)} hitSlop={8}>
-        <Text style={styles.link}>Add OpenAI credit →</Text>
+        <Text style={styles.link}>{t("settings.addCredit")}</Text>
       </Pressable>
 
-      <Text style={styles.group}>Accounting service</Text>
+      <Text style={styles.group}>{t("settings.accountingService")}</Text>
       <View style={styles.providerRow}>
         {PROVIDERS.map((p) => (
           <Pressable
@@ -114,23 +129,39 @@ export default function SettingsScreen({ initial, onChange, onClose }: Props) {
           </Pressable>
         ))}
       </View>
-      <Text style={styles.hint}>{provider.setupHint}</Text>
+      <Text style={styles.hint}>{t(provider.setupHint)}</Text>
       {provider.credentialFields.map((f) => (
         <Field
           key={f.key}
-          label={f.label}
+          label={t(f.label)}
           value={credValue(f.key)}
           onChange={(v) => setCred(f.key, v)}
           secure={f.secret}
-          placeholder={f.placeholder}
+          placeholder={f.placeholder ? t(f.placeholder) : undefined}
         />
       ))}
 
       <Pressable style={styles.secondary} onPress={test} disabled={testing}>
-        <Text style={styles.secondaryText}>{testing ? "Testing…" : "Test connection"}</Text>
+        <Text style={styles.secondaryText}>{testing ? t("settings.testing") : t("settings.test")}</Text>
       </Pressable>
-      <Text style={styles.savedNote}>Changes are saved automatically.</Text>
-      <Text style={styles.version}>Účtenkomat v{Constants.expoConfig?.version ?? "?"}</Text>
+
+      <Text style={styles.group}>{t("settings.language")}</Text>
+      <View style={styles.langRow}>
+        {(["system", ...SUPPORTED_LANGUAGES] as LanguagePref[]).map((lang) => (
+          <Pressable
+            key={lang}
+            style={[styles.providerChip, currentLanguage === lang && styles.providerChipActive]}
+            onPress={() => setLanguage(lang)}
+          >
+            <Text style={[styles.providerChipText, currentLanguage === lang && styles.providerChipTextActive]}>
+              {lang === "system" ? t("settings.languageSystem") : LANGUAGE_ENDONYMS[lang]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={styles.savedNote}>{t("settings.savedNote")}</Text>
+      <Text style={styles.version}>{t("settings.version", { version: Constants.expoConfig?.version ?? "?" })}</Text>
     </ScrollView>
   );
 }
@@ -177,6 +208,7 @@ const styles = StyleSheet.create({
   link: { fontSize: 13, color: "#2563eb", fontWeight: "600", marginTop: 8 },
   input: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 10, fontSize: 15, color: "#0f172a", backgroundColor: "#fff" },
   providerRow: { flexDirection: "row", gap: 10, marginBottom: 4 },
+  langRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 4 },
   providerChip: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, borderWidth: 1, borderColor: "#cbd5e1" },
   providerChipActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
   providerChipText: { color: "#334155", fontWeight: "600" },

@@ -169,11 +169,12 @@ export const fakturoidProvider: AccountingProvider = {
   id: "fakturoid",
   label: "Fakturoid",
   supportsTags: true,
-  setupHint: "Create an app in Fakturoid → Nastavení → API / Propojení aplikací (Client Credentials).",
+  // setupHint / field labels / placeholder are i18n keys, resolved in SettingsScreen.
+  setupHint: "settings.setupHint.fakturoid",
   credentialFields: [
-    { key: "clientId", label: "Client ID" },
-    { key: "clientSecret", label: "Client secret", secret: true },
-    { key: "slug", label: "Account slug", placeholder: "from app.fakturoid.cz/<slug>/…" },
+    { key: "clientId", label: "settings.field.clientId" },
+    { key: "clientSecret", label: "settings.field.clientSecret", secret: true },
+    { key: "slug", label: "settings.field.slug", placeholder: "settings.slugPlaceholder" },
   ],
   check: async (c) => {
     // getToken validates the Client ID/secret; account.json validates the slug

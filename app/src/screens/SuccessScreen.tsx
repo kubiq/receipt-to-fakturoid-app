@@ -1,14 +1,16 @@
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { useI18n } from "../i18n";
 import type { CreatedExpense } from "../types";
 
 type Props = { count: number; expense: CreatedExpense | null; onNew: () => void };
 
 export default function SuccessScreen({ count, expense, onNew }: Props) {
+  const { t } = useI18n();
   const multiple = count > 1;
   return (
     <View style={styles.container}>
       <Text style={styles.check}>✓</Text>
-      <Text style={styles.title}>{multiple ? `${count} expenses created` : "Expense created"}</Text>
+      <Text style={styles.title}>{t("success.created", { count })}</Text>
       {!multiple && expense && (
         <Text style={styles.muted}>
           #{expense.id}
@@ -18,11 +20,11 @@ export default function SuccessScreen({ count, expense, onNew }: Props) {
 
       {!multiple && expense?.url && (
         <Pressable style={styles.link} onPress={() => Linking.openURL(expense.url!)}>
-          <Text style={styles.linkText}>Open in Fakturoid</Text>
+          <Text style={styles.linkText}>{t("success.openInFakturoid")}</Text>
         </Pressable>
       )}
       <Pressable style={styles.primary} onPress={onNew}>
-        <Text style={styles.primaryText}>Scan more receipts</Text>
+        <Text style={styles.primaryText}>{t("success.scanMore")}</Text>
       </Pressable>
     </View>
   );

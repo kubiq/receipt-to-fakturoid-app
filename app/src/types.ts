@@ -50,6 +50,11 @@ export type CreatedExpense = {
 
 export type ProviderId = "fakturoid" | "idoklad";
 
+// UI languages the app ships translations for; "system" follows the device.
+export const SUPPORTED_LANGUAGES = ["en", "cs", "de", "sk"] as const;
+export type Language = (typeof SUPPORTED_LANGUAGES)[number];
+export type LanguagePref = "system" | Language;
+
 // BYOK config. OpenAI key is provider-independent; each accounting provider has
 // its own credentials, stored namespaced as `${providerId}.${fieldKey}`.
 export type Settings = {
@@ -57,4 +62,5 @@ export type Settings = {
   provider: ProviderId;
   creds: Record<string, string>;
   recentTags?: string[]; // recently used expense tags, most-recent first (for quick re-add)
+  language?: LanguagePref; // UI language; "system" (default) follows the device locale
 };
