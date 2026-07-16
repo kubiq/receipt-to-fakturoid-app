@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,7 @@ import {
 } from "react-native";
 import { getProvider, providerCreds } from "../accounting";
 import { useKeyboardHeight } from "../keyboard";
-import { showAlert } from "../ui";
+import { showAlert, confirmDialog } from "../ui";
 import { useI18n } from "../i18n";
 import type { CreatedExpense, Receipt, Settings, Subject } from "../types";
 
@@ -56,6 +57,7 @@ export default function ReviewScreen({
   const [markPaid, setMarkPaid] = useState(true); // receipts are paid at the till
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [duplicate, setDuplicate] = useState<CreatedExpense | null>(null); // already in the accounting system
 
   const lineSum = useMemo(
     () => round2(receipt.items.reduce((acc, it) => acc + (it.total_price || 0), 0)),
@@ -76,6 +78,23 @@ export default function ReviewScreen({
   const provider = getProvider(settings.provider);
   const creds = providerCreds(settings);
   const kb = useKeyboardHeight();
+
+  // On open, check whether this receipt is already saved (best-effort; a failure
+  // just skips the warning). Runs once — the identifiers come from the parse.
+  useEffect(() => {
+    if (!provider.findDuplicate) return;
+    let cancelled = false;
+    provider
+      .findDuplicate(creds, initial)
+      .then((d) => !cancelled && setDuplicate(d))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const dupLabel = duplicate ? (duplicate.number ?? `#${duplicate.id}`) : "";
 
   function updateItem(i: number, patch: Partial<Receipt["items"][number]>) {
     setReceipt((r) => ({ ...r, items: r.items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)) }));
@@ -110,6 +129,15 @@ export default function ReviewScreen({
     if (receipt.items.length === 0) {
       showAlert(t("alerts.noItemsTitle"), t("alerts.noItemsMsg"));
       return;
+    }
+    if (duplicate) {
+      const go = await confirmDialog(
+        t("alerts.duplicateTitle"),
+        t("alerts.duplicateMsg", { provider: provider.label, number: dupLabel }),
+        t("alerts.duplicateConfirm"),
+        t("common.cancel"),
+      );
+      if (!go) return;
     }
     if (!override && !ico && !dic) {
       showAlert(t("alerts.noSupplierTitle"), t("alerts.noSupplierMsg"));
@@ -148,6 +176,17 @@ export default function ReviewScreen({
         <Text style={styles.title}>{t("review.title")}</Text>
         <View style={{ width: 48 }} />
       </View>
+
+      {duplicate && (
+        <View style={styles.dupBanner}>
+          <Text style={styles.dupBannerText}>{t("review.duplicateBanner", { provider: provider.label, number: dupLabel })}</Text>
+          {duplicate.url && (
+            <Pressable onPress={() => Linking.openURL(duplicate.url!)} hitSlop={8}>
+              <Text style={styles.dupBannerLink}>{t("review.openExisting")}</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {/* Header fields */}
       <Text style={styles.label}>{t("review.merchant")}</Text>
@@ -354,6 +393,9 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
   muted: { color: "#64748b" },
   warn: { color: "#b45309", marginTop: 6 },
+  dupBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, backgroundColor: "#fef3c7", borderColor: "#f59e0b", borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 8 },
+  dupBannerText: { color: "#92400e", flex: 1, fontWeight: "600" },
+  dupBannerLink: { color: "#2563eb", fontWeight: "700" },
   tagWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
   tagChip: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#dbeafe", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
   tagChipText: { color: "#1e3a8a", fontWeight: "600" },

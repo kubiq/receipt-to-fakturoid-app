@@ -80,26 +80,39 @@ async function searchSubjects(c: Creds, query: string): Promise<Subject[]> {
   }));
 }
 
-async function findOrCreateSubject(
+type Supplier = { ico: string | null; dic: string | null; name: string | null };
+
+// Look up an existing subject without creating one. Precise identifiers first
+// (IČO, then DIČ — Fakturoid fulltext indexes both registration_no and vat_no),
+// then a fuzzy name match. Returns null when nothing matches.
+async function findSubject(
   c: Creds,
-  supplier: { ico: string | null; dic: string | null; name: string | null },
-): Promise<{ id: number; name: string; matchedBy: string; created: boolean }> {
+  supplier: Supplier,
+): Promise<{ id: number; name: string; matchedBy: string } | null> {
   const icoDigits = onlyDigits(supplier.ico);
   const dic = dicKey(supplier.dic);
-  // Try precise identifiers first (IČO, then DIČ — Fakturoid fulltext indexes
-  // both registration_no and vat_no), then fall back to a fuzzy name match.
   if (icoDigits) {
     const hit = (await searchSubjects(c, icoDigits)).find((x) => onlyDigits(x.registration_no) === icoDigits);
-    if (hit) return { id: hit.id, name: hit.name, matchedBy: "ico", created: false };
+    if (hit) return { id: hit.id, name: hit.name, matchedBy: "ico" };
   }
   if (dic) {
     const hit = (await searchSubjects(c, dic)).find((x) => dicKey(x.vat_no) === dic);
-    if (hit) return { id: hit.id, name: hit.name, matchedBy: "dic", created: false };
+    if (hit) return { id: hit.id, name: hit.name, matchedBy: "dic" };
   }
   if (supplier.name) {
     const first = (await searchSubjects(c, supplier.name))[0];
-    if (first) return { id: first.id, name: first.name, matchedBy: "name", created: false };
+    if (first) return { id: first.id, name: first.name, matchedBy: "name" };
   }
+  return null;
+}
+
+async function findOrCreateSubject(
+  c: Creds,
+  supplier: Supplier,
+): Promise<{ id: number; name: string; matchedBy: string; created: boolean }> {
+  const existing = await findSubject(c, supplier);
+  if (existing) return { ...existing, created: false };
+  const icoDigits = onlyDigits(supplier.ico);
   const name = supplier.name || (icoDigits ? `Supplier ${icoDigits}` : "");
   if (!name) throw new Error("Cannot resolve supplier: no IČO/DIČ match and no name to create one.");
   const created = await api(c, "POST", "/subjects.json", {
@@ -110,6 +123,44 @@ async function findOrCreateSubject(
     country: countryFromDic(supplier.dic),
   });
   return { id: created.id, name: created.name, matchedBy: "created", created: true };
+}
+
+// Detect a receipt that's already been entered in Fakturoid, so the user isn't
+// prompted to create a duplicate. Matches within the resolved supplier on the
+// supplier's document number (original_number); when the receipt has no document
+// number, falls back to same issue date + matching gross total. Only the first
+// page of the supplier's expenses (newest first) is checked — enough for the
+// common "just scanned it again" case.
+async function findDuplicate(c: Creds, receipt: Receipt): Promise<CreatedExpense | null> {
+  const subject = await findSubject(c, {
+    ico: receipt.supplier_ico,
+    dic: receipt.supplier_dic,
+    name: receipt.supplier_name || receipt.merchant,
+  });
+  if (!subject) return null; // supplier unknown → no prior expense to collide with
+
+  const wantNo = dicKey(receipt.doc_number); // reuse the alnum-uppercase normaliser
+  const list: any[] =
+    (await api(c, "GET", `/expenses.json?subject_id=${subject.id}`, undefined, { allow404: true })) || [];
+
+  const match = list.find((e) => {
+    if (e.subject_id !== subject.id) return false; // guard in case the filter was ignored
+    if (wantNo) return dicKey(e.original_number) === wantNo;
+    // No document number: fall back to same date + total (within rounding).
+    return (
+      receipt.date != null &&
+      receipt.total != null &&
+      e.issued_on === receipt.date &&
+      Math.abs(Number(e.total) - receipt.total) < 0.5
+    );
+  });
+  if (!match) return null;
+  return {
+    id: match.id,
+    number: match.number ?? null,
+    url: `https://app.fakturoid.cz/${c.slug}/expenses/${match.id}`,
+    subject: { id: subject.id, name: subject.name },
+  };
 }
 
 async function createExpense(c: Creds, receipt: Receipt, opts: CreateExpenseOpts): Promise<CreatedExpense> {
@@ -191,4 +242,5 @@ export const fakturoidProvider: AccountingProvider = {
   },
   searchSubjects,
   createExpense,
+  findDuplicate,
 };

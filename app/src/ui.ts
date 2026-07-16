@@ -11,3 +11,23 @@ export function showAlert(title: string, message?: string): void {
     Alert.alert(title, message);
   }
 }
+
+// Two-button confirm. Resolves true when the user confirms, false otherwise.
+export function confirmDialog(
+  title: string,
+  message: string,
+  confirmLabel: string,
+  cancelLabel: string,
+): Promise<boolean> {
+  if (Platform.OS === "web") {
+    const w = globalThis as any;
+    const ok = typeof w.confirm === "function" ? w.confirm(`${title}\n\n${message}`) : true;
+    return Promise.resolve(ok);
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: cancelLabel, style: "cancel", onPress: () => resolve(false) },
+      { text: confirmLabel, style: "destructive", onPress: () => resolve(true) },
+    ]);
+  });
+}

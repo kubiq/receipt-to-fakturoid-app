@@ -6,6 +6,7 @@ export const de: Translations = {
     back: "‹ Zurück",
     search: "Suchen",
     add: "Hinzufügen",
+    cancel: "Abbrechen",
   },
   capture: {
     takePhoto: "Foto aufnehmen",
@@ -50,6 +51,8 @@ export const de: Translations = {
     markPaid: "Als bezahlt markieren (zum Belegdatum)",
     attachmentNote: "📎 Die Belegdatei wird an die Ausgabe angehängt.",
     createExpense: "Ausgabe in %{provider} erstellen",
+    duplicateBanner: "⚠ Evtl. bereits in %{provider}: %{number}",
+    openExisting: "Öffnen",
   },
   settings: {
     title: "Einstellungen",
@@ -95,6 +98,9 @@ export const de: Translations = {
     createFailedTitle: "Ausgabe konnte nicht erstellt werden",
     connectionTestTitle: "Verbindungstest",
     testFailedTitle: "Test fehlgeschlagen",
+    duplicateTitle: "Möglicher Doppeleintrag",
+    duplicateMsg: "Dieser Beleg scheint bereits in %{provider} gespeichert zu sein (%{number}). Trotzdem erstellen?",
+    duplicateConfirm: "Trotzdem erstellen",
     ok: "✓ ok",
     failed: "✗ fehlgeschlagen",
     providerFail: "✗ %{msg}",

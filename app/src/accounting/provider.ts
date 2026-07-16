@@ -40,6 +40,14 @@ export interface AccountingProvider {
   searchSubjects(creds: Creds, query: string): Promise<Subject[]>;
 
   /**
+   * Look for an already-saved expense matching this receipt (same supplier +
+   * document number, or date + total), so the user can avoid creating a
+   * duplicate. Optional: providers that can't check this omit it. Returns the
+   * existing expense, or null when none is found.
+   */
+  findDuplicate?(creds: Creds, receipt: Receipt): Promise<CreatedExpense | null>;
+
+  /**
    * Create the expense. When opts.subjectId is omitted, resolve the supplier
    * from the receipt's IČO (create it if missing). opts.tags is honoured only
    * when supportsTags is true; other providers ignore it.

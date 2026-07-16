@@ -10,6 +10,7 @@ export const en = {
     back: "‹ Back",
     search: "Search",
     add: "Add",
+    cancel: "Cancel",
   },
   capture: {
     takePhoto: "Take photo",
@@ -54,6 +55,8 @@ export const en = {
     markPaid: "Mark as paid (on the document date)",
     attachmentNote: "📎 The receipt file will be attached to the expense.",
     createExpense: "Create expense in %{provider}",
+    duplicateBanner: "⚠ May already be in %{provider}: %{number}",
+    openExisting: "Open",
   },
   settings: {
     title: "Settings",
@@ -99,6 +102,9 @@ export const en = {
     createFailedTitle: "Could not create expense",
     connectionTestTitle: "Connection test",
     testFailedTitle: "Test failed",
+    duplicateTitle: "Possible duplicate",
+    duplicateMsg: "This receipt looks like it's already saved in %{provider} (%{number}). Create it anyway?",
+    duplicateConfirm: "Create anyway",
     ok: "✓ ok",
     failed: "✗ failed",
     providerFail: "✗ %{msg}",

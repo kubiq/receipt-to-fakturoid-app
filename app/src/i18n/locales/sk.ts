@@ -6,6 +6,7 @@ export const sk: Translations = {
     back: "‹ Späť",
     search: "Hľadať",
     add: "Pridať",
+    cancel: "Zrušiť",
   },
   capture: {
     takePhoto: "Odfotiť",
@@ -50,6 +51,8 @@ export const sk: Translations = {
     markPaid: "Označiť ako zaplatené (k dátumu dokladu)",
     attachmentNote: "📎 Súbor účtenky bude priložený k výdavku.",
     createExpense: "Vytvoriť výdavok v %{provider}",
+    duplicateBanner: "⚠ Možno už je v %{provider}: %{number}",
+    openExisting: "Otvoriť",
   },
   settings: {
     title: "Nastavenia",
@@ -100,6 +103,9 @@ export const sk: Translations = {
     createFailedTitle: "Výdavok sa nepodarilo vytvoriť",
     connectionTestTitle: "Test pripojenia",
     testFailedTitle: "Test zlyhal",
+    duplicateTitle: "Možný duplikát",
+    duplicateMsg: "Táto účtenka je zrejme už uložená v %{provider} (%{number}). Napriek tomu vytvoriť?",
+    duplicateConfirm: "Napriek tomu vytvoriť",
     ok: "✓ ok",
     failed: "✗ chyba",
     providerFail: "✗ %{msg}",
